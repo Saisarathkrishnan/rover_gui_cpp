@@ -3,45 +3,40 @@
 #include "backends/imgui_impl_opengl3.h"
 #include <GLFW/glfw3.h>
 
+#include <stdio.h>
+#include <string>
 void mystyle()
 {
-    ImGuiStyle& style = ImGui::GetStyle();
-    ImGuiIO& io = ImGui::GetIO();
-
-    if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
-    {
-        style.WindowRounding = 0.0f;
-        style.Colors[ImGuiCol_WindowBg].w = 1.0f;
-    }
+    ImGuiStyle &style = ImGui::GetStyle();
+    style.WindowRounding = 5.0f;
+    style.Colors[ImGuiCol_WindowBg].w = 1.0f;
 }
 
 void DrawUI()
 {
-    ImGui::DockSpaceOverViewport(ImGui::GetMainViewport());
+    ImGuiIO &io = ImGui::GetIO();
+    ImGui::SetNextWindowPos(ImVec2(0, 0));
+    ImGui::SetNextWindowSize(io.DisplaySize);
 
-    ImGuiViewport* vp = ImGui::GetMainViewport();
-    ImGui::SetNextWindowPos(vp->WorkPos);
-    ImGui::SetNextWindowSize(vp->WorkSize);
+    // Flags to make it act like the main window
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar |
+                             ImGuiWindowFlags_NoResize |
+                             ImGuiWindowFlags_NoMove |
+                             ImGuiWindowFlags_NoCollapse |
+                             ImGuiWindowFlags_NoBringToFrontOnFocus;
+    ImGui::Begin("MRM GUI", nullptr, flags);
 
-    ImGuiWindowFlags flags =
-        ImGuiWindowFlags_NoTitleBar |
-        ImGuiWindowFlags_NoResize |
-        ImGuiWindowFlags_NoMove |
-        ImGuiWindowFlags_NoCollapse;
-
-    ImGui::Begin("Main", nullptr, flags);
-
-    if (ImGui::BeginTabBar("MainTabs", ImGuiTabBarFlags_Reorderable | ImGuiTabBarFlags_FittingPolicyResizeDown))
+    if (ImGui::BeginTabBar("MainTabs", ImGuiTabBarFlags_Reorderable))
     {
+
         if (ImGui::BeginTabItem("Tab1"))
         {
             float W = ImGui::GetContentRegionAvail().x;
-            float H = ImGui::GetContentRegionAvail().y;
+            float H = ImGui::GetContentRegionAvail().y - 13;
 
             float leftW = W * 0.2f;
             float midW = W * 0.6f;
             float rightW = W * 0.2f;
-
             ImGui::BeginChild("LeftGPS", ImVec2(leftW, H), true);
             ImGui::Text("Fix State");
             ImGui::Separator();
@@ -107,25 +102,79 @@ void DrawUI()
             ImGui::SameLine();
 
             ImGui::BeginChild("Right", ImVec2(rightW, H), true);
-            ImGui::Text("Reserved");
+
+            // Draw rover top view
+            ImDrawList *draw_list = ImGui::GetWindowDrawList();
+            ImVec2 pos = ImGui::GetCursorScreenPos();
+            float panelW = ImGui::GetContentRegionAvail().x;
+            float panelH = ImGui::GetContentRegionAvail().y;
+
+            // Scale down rover
+            float scale = 0.6f;
+
+            // Rover body (1:2 width:height ratio)
+            float roverH = panelH * 0.4f * scale;
+            float roverW = roverH / 2.0f;
+            ImVec2 bodyTL(pos.x + (panelW - roverW) / 2, pos.y + 20);
+            ImVec2 bodyBR(bodyTL.x + roverW, bodyTL.y + roverH);
+            draw_list->AddRectFilled(bodyTL, bodyBR, IM_COL32(100, 150, 220, 255), 5.0f);
+
+            // Wheels (3 left, 3 right) - rectangular and slightly outside
+            float wheelW = 15.0f * scale;
+            float wheelH = 30.0f * scale;
+            float wheelSpacing = roverH / 3.2;
+
+            for (int i = 0; i < 3; i++)
+            {
+                // Left wheels
+                ImVec2 wlTL(bodyTL.x - wheelW - 10, bodyTL.y + i * wheelSpacing + wheelSpacing / 2 - wheelH / 2);
+                ImVec2 wlBR(wlTL.x + wheelW + 3, wlTL.y + wheelH);
+                draw_list->AddRectFilled(wlTL, wlBR, IM_COL32(200, 100, 100, 255), 3.0f);
+
+                // Right wheels
+                ImVec2 wrTL(bodyBR.x + 5, bodyTL.y + i * wheelSpacing + wheelSpacing / 2 - wheelH / 2);
+                ImVec2 wrBR(wrTL.x + wheelW, wrTL.y + wheelH);
+                draw_list->AddRectFilled(wrTL, wrBR, IM_COL32(200, 100, 100, 255), 3.0f);
+            }
+
+            char bufLeft[32] = "PWM L";  /// calue
+            char bufRight[32] = "PWM R"; // calue
+            draw_list->AddText(ImVec2(bodyTL.x - wheelW - 10, bodyBR.y + 5), IM_COL32(255, 255, 255, 255), bufLeft);
+            draw_list->AddText(ImVec2(bodyBR.x + 5, bodyBR.y + 5), IM_COL32(255, 255, 255, 255), bufRight);
+
             ImGui::EndChild();
 
+            float avail_width = ImGui::GetContentRegionAvail().x;
+            float column_width = avail_width / 3.0f;
+            std::string lmao=" online";
+            std::string l2u_text = "L2U:"+lmao;
+            ImGui::SetCursorPosX(column_width / 2 - ImGui::CalcTextSize(l2u_text.c_str()).x / 2);
+            ImGui::Text("%s", l2u_text.c_str());
+            ImGui::SameLine();
+            std::string jetson_text = "Jetson:"+lmao;
+            ImGui::SetCursorPosX(column_width + column_width / 2 - ImGui::CalcTextSize(jetson_text.c_str()).x / 2);
+            ImGui::Text("%s", jetson_text.c_str());
+            ImGui::SameLine();
+            std::string analog_text = "Analog Cameras:"+lmao;
+            ImGui::SetCursorPosX(2 * column_width + column_width / 2 - ImGui::CalcTextSize(analog_text.c_str()).x / 2);
+            ImGui::Text("%s", analog_text.c_str());
+            ImGui::SameLine();
             ImGui::EndTabItem();
         }
 
-        if (ImGui::BeginTabItem("tab2"))
+        if (ImGui::BeginTabItem("Tab2"))
         {
             ImGui::Text("Arm and gripper UI");
             ImGui::EndTabItem();
         }
 
-        if (ImGui::BeginTabItem("tab3"))
+        if (ImGui::BeginTabItem("Tab3"))
         {
             ImGui::Text("Perception debug and detections");
             ImGui::EndTabItem();
         }
 
-        if (ImGui::BeginTabItem("tab4"))
+        if (ImGui::BeginTabItem("Tab4"))
         {
             ImGui::Text("System status and diagnostics");
             ImGui::EndTabItem();
@@ -134,26 +183,20 @@ void DrawUI()
         ImGui::EndTabBar();
     }
 
-    ImGui::Separator();
-    ImGui::Text("L2U: ONLINE   Jetson: ONLINE   Analog Cam: ONLINE");
-
     ImGui::End();
 }
 
 int main()
 {
     glfwInit();
-    GLFWwindow* window = glfwCreateWindow(960, 540, "MRM GUI", NULL, NULL);
+    GLFWwindow *window = glfwCreateWindow(960, 540, "MRM GUI", NULL, NULL);
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1);
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
 
-    ImGuiIO& io = ImGui::GetIO();
-    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-    io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
-
+    ImGuiIO &io = ImGui::GetIO(); // Can leave it, but not used
     ImGui::StyleColorsDark();
     mystyle();
 
@@ -178,14 +221,6 @@ int main()
         glClear(GL_COLOR_BUFFER_BIT);
 
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
-        if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
-        {
-            GLFWwindow* backup = glfwGetCurrentContext();
-            ImGui::UpdatePlatformWindows();
-            ImGui::RenderPlatformWindowsDefault();
-            glfwMakeContextCurrent(backup);
-        }
 
         glfwSwapBuffers(window);
     }

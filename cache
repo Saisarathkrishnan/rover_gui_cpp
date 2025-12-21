@@ -5,209 +5,98 @@
 
 void mystyle()
 {
-    ImGuiStyle &style = ImGui::GetStyle();
+    ImGuiStyle& style = ImGui::GetStyle();
+    style.WindowRounding = 5.0f;
+    style.Colors[ImGuiCol_WindowBg].w = 1.0f;
 }
 
+void DrawUI()
+{
+    ImGuiIO& io = ImGui::GetIO();
+    ImGui::SetNextWindowPos(ImVec2(0, 0));
+    ImGui::SetNextWindowSize(io.DisplaySize);
 
+    // Flags to make it act like the main window
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar |
+                             ImGuiWindowFlags_NoResize |
+                             ImGuiWindowFlags_NoMove |
+                             ImGuiWindowFlags_NoCollapse |
+                             ImGuiWindowFlags_NoBringToFrontOnFocus;
 
-if (ImGui::BeginTabBar("MainTabs",
-                           ImGuiTabBarFlags_FittingPolicyScroll))
+    // This is now the "main window" itself
+    ImGui::Begin("MRM GUI", nullptr, flags);
+
+    // Tab Bar
+    if (ImGui::BeginTabBar("MainTabs", ImGuiTabBarFlags_Reorderable))
     {
         if (ImGui::BeginTabItem("Tab1"))
         {
-            ImVec2 avail = ImGui::GetContentRegionAvail();
-            float rightW = avail.x * 0.30f;
+            float W = ImGui::GetContentRegionAvail().x;
+            float H = ImGui::GetContentRegionAvail().y;
 
-            ImGui::BeginChild("Left", ImVec2(avail.x - rightW, avail.y), true);
-            ImVec2 avail1 = ImGui::GetContentRegionAvail();
-            //            ImGui::Text("Left Panel");
-            ImGui::BeginChild("FixState", ImVec2(0, 0), true);
+            float leftW = W * 0.2f;
+            float midW = W * 0.6f;
+            float rightW = W * 0.2f;
 
-            ImGui::Text("Gps State");
-            if (ImGui::BeginTable("FixTable", 2,
-                                  ImGuiTableFlags_BordersInnerV |
-                                      ImGuiTableFlags_RowBg))
-            {
+            // Left Panel
+            ImGui::BeginChild("LeftGPS", ImVec2(leftW, H), true);
+            ImGui::Text("Fix State");
+            ImGui::EndChild();
 
-                ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, 90);
-                ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthFixed, 90);
+            ImGui::SameLine();
 
-                auto row = [](const char *label1, const char *value1)
-                {
-                    ImGui::TableNextRow();
-                    ImGui::TableSetColumnIndex(0);
-                    ImGui::TextUnformatted(label1);
-                    ImGui::TableSetColumnIndex(1);
-                    ImGui::TextUnformatted(value1);
-                };
+            // Middle Panel
+            ImGui::BeginChild("Middle", ImVec2(midW, H), true);
+            ImGui::Text("Middle Content");
+            ImGui::EndChild();
 
-                row("Fix type", "3D fix");
-                row("Sattelites", "valid GPS fix");
-                row("HDOPS", "0");
-                row("VDOPS", "Automatic");
-                row("Satellites", "9");
-                ImGui::EndTable();
-            }
+            ImGui::SameLine();
 
-            ImGui::Text("Position");
-            if (ImGui::BeginTable("FixTable", 2,
-                                  ImGuiTableFlags_BordersInnerV |
-                                      ImGuiTableFlags_RowBg))
-            {
-                ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, 90);
-                ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthFixed, 90);
+            // Right Panel
+            ImGui::BeginChild("Right", ImVec2(rightW, H), true);
+            ImGui::Text("Right Content");
+            ImGui::EndChild();
 
-                auto row = [](const char *label1, const char *value1)
-                {
-                    ImGui::TableNextRow();
-                    ImGui::TableSetColumnIndex(0);
-                    ImGui::TextUnformatted(label1);
-                    ImGui::TableSetColumnIndex(1);
-                    ImGui::TextUnformatted(value1);
-                };
-                row("Latitude", "3D fix");
-                row("Longitude", "valid GPS fix");
-
-                row("Altitude", "0");
-
-        }
-
-        if (ImGui::BeginTabItem("tab2"))
-        {
             ImGui::EndTabItem();
         }
 
-        if (ImGui::BeginTabItem("tab3"))
+        if (ImGui::BeginTabItem("Tab2"))
         {
+            ImGui::Text("Arm and gripper UI");
             ImGui::EndTabItem();
         }
-        if (ImGui::BeginTabItem("tab4"))
+
+        if (ImGui::BeginTabItem("Tab3"))
         {
+            ImGui::Text("Perception debug and detections");
             ImGui::EndTabItem();
         }
+
+        if (ImGui::BeginTabItem("Tab4"))
+        {
+            ImGui::Text("System status and diagnostics");
+            ImGui::EndTabItem();
+        }
+
         ImGui::EndTabBar();
     }
-void DrawUI()
-{
-    ImGuiViewport* vp = ImGui::GetMainViewport();
-    ImGui::SetNextWindowPos(vp->WorkPos);
-    ImGui::SetNextWindowSize(vp->WorkSize);
 
-    ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar |
-                              ImGuiWindowFlags_NoResize |
-                              ImGuiWindowFlags_NoMove |
-                              ImGuiWindowFlags_NoCollapse ;
-
-    ImGui::Begin("Main", nullptr, flags);
-
-    float W = ImGui::GetContentRegionAvail().x;
-    float H = ImGui::GetContentRegionAvail().y;
-
-    float leftW  = W * 0.2f;   // 1
-    float midW   = W * 0.6f;   // 3
-    float rightW = W * 0.2f;   // 1
-
-    // ================= LEFT =================
-    ImGui::BeginChild("LeftGPS", ImVec2(leftW, H), true);
-
-    ImGui::Text("Fix State");
-    ImGui::Separator();
-    ImGui::Text("Fix        : %d", 1);
-    ImGui::Text("Satellites : %d", 22);
-    ImGui::Text("HDOP       : %.2f", 0.9f);
-    ImGui::Text("VDOP       : %.2f", 1.1f);
-
-    ImGui::Separator();
-    ImGui::Text("Current Position");
-    ImGui::Text("Lat : %.6f", 13.345441);
-    ImGui::Text("Lon : %.6f", 74.794537);
-    ImGui::Text("Alt : %.2f", 79.7f);
-
-    ImGui::Separator();
-    ImGui::Text("Destination");
-    static float dlat = 13.346f, dlon = 74.795f, dalt = 80.0f;
-    ImGui::InputFloat("Lat##d", &dlat, 0, 0, "%.6f");
-    ImGui::InputFloat("Lon##d", &dlon, 0, 0, "%.6f");
-    ImGui::InputFloat("Alt##d", &dalt, 0, 0, "%.2f");
-
-    
-    ImGui::Text("Distance : %.2f m", 12.4f);
-    ImGui::Separator();
-    ImGui::EndChild();
-
-    ImGui::SameLine();
-
-    ImGui::BeginChild("Middle", ImVec2(midW, H), false);
-
-    float topH = H * 0.35f;
-    float midH = H * 0.30f;
-
-    ImGui::BeginChild("TopRow", ImVec2(0, topH), false);
-
-    ImGui::BeginChild("ZED", ImVec2(midW * 0.6f, topH), true);
-    ImGui::Text("ZED Camera");
-    ImGui::Dummy(ImVec2(0, topH - 30));
-    ImGui::EndChild();
-
-    ImGui::SameLine();
-
-    ImGui::BeginChild("NavState", ImVec2(0, topH), true);
-    ImGui::Text("Nav State");
-    ImGui::Separator();
-
-    static int control_mode = 1;
-    ImGui::Text("Mode");
-    ImGui::RadioButton("Manual", &control_mode, 0);
-    ImGui::RadioButton("Autonomous", &control_mode, 1);
-
-    ImGui::Separator();
-    ImGui::Text("Nav Mode : WAYPOINT");
-    ImGui::EndChild();
-
-    ImGui::EndChild();
-
-
-    ImGui::BeginChild("Mast", ImVec2(0, midH), true);
-    ImGui::Text("Mast Camera");
-    ImGui::Dummy(ImVec2(0, midH - 30));
-    ImGui::EndChild();
-
-    ImGui::BeginChild("Console", ImVec2(0, 0), true);
-    ImGui::Text("Console Log");
-    ImGui::Separator();
-    ImGui::TextWrapped("[INFO] Autonomous enabled");
-    ImGui::TextWrapped("[INFO] Nav mode: WAYPOINT");
-    ImGui::TextWrapped("[WARN] Cone detected");
-    ImGui::EndChild();
-
-    ImGui::EndChild();
-
-    ImGui::SameLine();
-    ImGui::BeginChild("Right", ImVec2(rightW, H), true);
-    ImGui::Text("Reserved");
-    ImGui::Dummy(ImVec2(0, H - 40));
-    ImGui::EndChild();
-
-    // ================= STATUS =================
-    ImGui::Separator();
-    ImGui::Text("L2U: ONLINE   Jetson: ONLINE   Analog Cam: ONLINE");
-
-    ImGui::End();
+    ImGui::End(); // End main window
 }
-
-
-
-
 
 int main()
 {
+    // GLFW window (native OS window)
     glfwInit();
-    GLFWwindow *window = glfwCreateWindow(1920 / 2, 1080 / 2, "MRM GUI", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(960, 540, "MRM GUI", NULL, NULL);
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1);
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
+
+    ImGuiIO& io = ImGui::GetIO();
+
     ImGui::StyleColorsDark();
     mystyle();
 
@@ -217,12 +106,11 @@ int main()
     while (!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
-
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        DrawUI();
+        DrawUI(); // Draw everything inside the main window
 
         ImGui::Render();
         int w, h;
