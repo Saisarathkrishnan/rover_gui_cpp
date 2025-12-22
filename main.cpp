@@ -3,8 +3,11 @@
 #include "backends/imgui_impl_opengl3.h"
 #include <GLFW/glfw3.h>
 
+#include <iostream>
 #include <stdio.h>
 #include <string>
+#include <arpa/inet.h>
+#include <nlohmann/json.hpp>
 void mystyle()
 {
     ImGuiStyle &style = ImGui::GetStyle();
@@ -12,13 +15,70 @@ void mystyle()
     style.Colors[ImGuiCol_WindowBg].w = 1.0f;
 }
 
-void DrawUI()
+bool isOnline(const std::string& ip) {
+    std::string cmd = "ping -c 1 -W 1 " + ip + " > /dev/null 2>&1";
+    int ret = system(cmd.c_str());
+    return ret == 0;  
+}
+
+nlohmann::json check_online(){
+    std::cout << "L2U: " << (isOnline("10.0.0.7") ? "online" : "offline") << std::endl;
+    std::cout << "Jetson: " << (isOnline("10.0.0.69") ? "online" : "offline") << std::endl;
+    std::cout << "Analog: " << (isOnline("10.0.0.9") ? "online" : "offline") << std::endl;
+}
+void DrawUI(int client_fd)
 {
+
+    uint32_t len_net = 0;
+    int r = recv(client_fd, &len_net, sizeof(len_net), MSG_WAITALL);
+    if (r <= 0)
+    {
+        return;
+    }
+
+    uint32_t len = ntohl(len_net);
+    if (len == 0 || len > 1024 * 1024)
+    { 
+        return;
+    }
+
+    std::string data(len, '\0');
+    r = recv(client_fd, data.data(), len, MSG_WAITALL);
+    if (r <= 0)
+    {
+        return;
+    }
+
+    nlohmann::json mj;
+    try
+    {
+        mj = nlohmann::json::parse(data);
+    }
+    catch (const nlohmann::json::parse_error &e)
+    {
+        std::cerr << "JSON parse error: " << e.what() << "\n";
+        std::cerr << "RAW DATA: [" << data << "]\n";
+        return;
+    }
+    std::cout << "---- dota ----\n";
+
+    for (auto &[key, value] : mj.items())
+    {
+        std::cout << key << " : ";
+
+        if (value.is_string())
+            std::cout << value.get<std::string>();
+        else
+            std::cout << value.dump(); 
+
+        std::cout << std::endl;
+    }
+
+    std::cout << "-----------------------\n";
     ImGuiIO &io = ImGui::GetIO();
     ImGui::SetNextWindowPos(ImVec2(0, 0));
     ImGui::SetNextWindowSize(io.DisplaySize);
 
-    // Flags to make it act like the main window
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar |
                              ImGuiWindowFlags_NoResize |
                              ImGuiWindowFlags_NoMove |
@@ -40,15 +100,15 @@ void DrawUI()
             ImGui::BeginChild("LeftGPS", ImVec2(leftW, H), true);
             ImGui::Text("Fix State");
             ImGui::Separator();
-            ImGui::Text("Fix        : %d", 1);
-            ImGui::Text("Satellites : %d", 22);
-            ImGui::Text("HDOP       : %.2f", 0.9f);
-            ImGui::Text("VDOP       : %.2f", 1.1f);
+            ImGui::Text("Fix        : %s", mj["gps_fix_curr"].get<std::string>().c_str());
+            ImGui::Text("Satellites : %s", mj["gps_sattelites_curr"].get<std::string>().c_str());
+            ImGui::Text("HDOP       : %s", mj["gps_vdops_curr"].get<std::string>().c_str());
+            ImGui::Text("VDOP       : %s", mj["gps_hdops_curr"].get<std::string>().c_str());
             ImGui::Separator();
             ImGui::Text("Current Position");
-            ImGui::Text("Lat : %.6f", 13.345441);
-            ImGui::Text("Lon : %.6f", 74.794537);
-            ImGui::Text("Alt : %.2f", 79.7f);
+            ImGui::Text("Lat : %s", mj["gps_lat_curr"].get<std::string>().c_str());
+            ImGui::Text("Lon : %s", mj["gps_lon_curr"].get<std::string>().c_str());
+            ImGui::Text("Alt : %s", mj["gps_alt_curr"].get<std::string>().c_str());
             ImGui::Separator();
             ImGui::Text("Destination");
             static float dlat = 13.346f, dlon = 74.795f, dalt = 80.0f;
@@ -56,6 +116,17 @@ void DrawUI()
             ImGui::InputFloat("Lon##d", &dlon, 0, 0, "%.6f");
             ImGui::InputFloat("Alt##d", &dalt, 0, 0, "%.2f");
             ImGui::Text("Distance : %.2f m", 12.4f);
+            ImGui::Text("Curr Yaw : %s deg", mj["currnYaw"].get<std::string>().c_str());
+            ImGui::Text("Dest Yaw : %s deg",  mj["destYaw"].get<std::string>().c_str());
+            ImGui::Text("Error : %s deg",  mj["destYawError"].get<std::string>().c_str());
+            ImGui::Separator();
+            ImGui::Text("Colour Marker");
+            std::string fgfg;
+            ImGui::Text("Marker Detectd: %s", mj["gps_lat_curr"].get<std::string>().c_str());
+            ImGui::Text("Marker ID: %s", mj["marker_detect_id"].get<std::string>().c_str());
+            ImGui::Text("Marker x : %s", mj["marker_detect_x"].get<std::string>().c_str());
+            ImGui::Text("Marker y : %s", mj["marker_detect_y"].get<std::string>().c_str());
+
             ImGui::EndChild();
 
             ImGui::SameLine();
@@ -146,16 +217,16 @@ void DrawUI()
 
             float avail_width = ImGui::GetContentRegionAvail().x;
             float column_width = avail_width / 3.0f;
-            std::string lmao=" online";
-            std::string l2u_text = "L2U:"+lmao;
+            std::string lmao = " online";
+            std::string l2u_text = "L2U:" + lmao;
             ImGui::SetCursorPosX(column_width / 2 - ImGui::CalcTextSize(l2u_text.c_str()).x / 2);
             ImGui::Text("%s", l2u_text.c_str());
             ImGui::SameLine();
-            std::string jetson_text = "Jetson:"+lmao;
+            std::string jetson_text = "Jetson:" + lmao;
             ImGui::SetCursorPosX(column_width + column_width / 2 - ImGui::CalcTextSize(jetson_text.c_str()).x / 2);
             ImGui::Text("%s", jetson_text.c_str());
             ImGui::SameLine();
-            std::string analog_text = "Analog Cameras:"+lmao;
+            std::string analog_text = "Analog Cameras:" + lmao;
             ImGui::SetCursorPosX(2 * column_width + column_width / 2 - ImGui::CalcTextSize(analog_text.c_str()).x / 2);
             ImGui::Text("%s", analog_text.c_str());
             ImGui::SameLine();
@@ -188,6 +259,34 @@ void DrawUI()
 
 int main()
 {
+    int server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (server_fd < 0)
+    {
+        perror("socket");
+        return 1;
+    }
+
+    sockaddr_in addr{};
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(9000);
+    addr.sin_addr.s_addr = INADDR_ANY;
+
+    if (bind(server_fd, (sockaddr *)&addr, sizeof(addr)) < 0)
+    {
+        perror("bind");
+        return 1;
+    }
+
+    listen(server_fd, 1);
+
+    std::cout << "Waiting for connection...\n";
+
+    int client_fd = accept(server_fd, nullptr, nullptr);
+    if (client_fd < 0)
+    {
+        perror("accept");
+        return 1;
+    }
     glfwInit();
     GLFWwindow *window = glfwCreateWindow(960, 540, "MRM GUI", NULL, NULL);
     glfwMakeContextCurrent(window);
@@ -211,7 +310,7 @@ int main()
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        DrawUI();
+        DrawUI(client_fd);
 
         ImGui::Render();
         int w, h;
