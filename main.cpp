@@ -1,6 +1,8 @@
 #include "imgui.h"
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_opengl3.h"
+#include "misc/cpp/imgui_stdlib.h"
+
 #include <GLFW/glfw3.h>
 
 #include <iostream>
@@ -15,18 +17,54 @@ void mystyle()
     style.Colors[ImGuiCol_WindowBg].w = 1.0f;
 }
 
-bool isOnline(const std::string& ip) {
+bool isOnline(const std::string &ip)
+{
     std::string cmd = "ping -c 1 -W 1 " + ip + " > /dev/null 2>&1";
     int ret = system(cmd.c_str());
-    return ret == 0;  
+    return ret == 0;
 }
 
-nlohmann::json check_online(){
+nlohmann::json check_online()
+{
     std::cout << "L2U: " << (isOnline("10.0.0.7") ? "online" : "offline") << std::endl;
     std::cout << "Jetson: " << (isOnline("10.0.0.69") ? "online" : "offline") << std::endl;
     std::cout << "Analog: " << (isOnline("10.0.0.9") ? "online" : "offline") << std::endl;
 }
-void DrawUI(int client_fd)
+
+void sendLL(int client_fd,nlohmann::json *data_tosend)
+{
+    std::cout << "send" << std::endl;
+    std::cout << "sending this json-----------" << std::endl;
+    for (auto &[key, value] : (*data_tosend).items())
+    {
+        std::cout << key << " : " << value << std::endl;
+    }
+    std::cout << "sendt this  json-----------" << std::endl;
+    std::string mj_str = (*data_tosend).dump();
+    uint32_t len = htonl(mj_str.size());
+    send(client_fd, &len, sizeof(len), 0);
+    send(client_fd, mj_str.data(), mj_str.size(), 0);
+}
+void resetLL(nlohmann::json *data_tosend)
+{
+    *data_tosend = {
+        {"is_auto", false},
+        {"navModeColourGPS", false}, // false is colour
+        {"colourId", -1},
+        {"to_skew", 0},
+        {"skew", -1},
+        {"goal_lat", "nan"},
+        {"goal_lon", "nan"},
+    };
+    std::cout << "reset the json-----------" << std::endl;
+    for (auto &[key, value] : (*data_tosend).items())
+    {
+        std::cout << key << " : " << value << std::endl;
+    }
+    std::cout << "reseted the json-----------" << std::endl;
+}
+
+void DrawUI(int client_fd, nlohmann::json *data_tosend)
 {
 
     uint32_t len_net = 0;
@@ -38,7 +76,7 @@ void DrawUI(int client_fd)
 
     uint32_t len = ntohl(len_net);
     if (len == 0 || len > 1024 * 1024)
-    { 
+    {
         return;
     }
 
@@ -60,6 +98,7 @@ void DrawUI(int client_fd)
         std::cerr << "RAW DATA: [" << data << "]\n";
         return;
     }
+    /*
     std::cout << "---- dota ----\n";
 
     for (auto &[key, value] : mj.items())
@@ -69,12 +108,14 @@ void DrawUI(int client_fd)
         if (value.is_string())
             std::cout << value.get<std::string>();
         else
-            std::cout << value.dump(); 
+            std::cout << value.dump();
 
         std::cout << std::endl;
     }
 
     std::cout << "-----------------------\n";
+
+    */
     ImGuiIO &io = ImGui::GetIO();
     ImGui::SetNextWindowPos(ImVec2(0, 0));
     ImGui::SetNextWindowSize(io.DisplaySize);
@@ -111,14 +152,14 @@ void DrawUI(int client_fd)
             ImGui::Text("Alt : %s", mj["gps_alt_curr"].get<std::string>().c_str());
             ImGui::Separator();
             ImGui::Text("Destination");
-            static float dlat = 13.346f, dlon = 74.795f, dalt = 80.0f;
-            ImGui::InputFloat("Lat##d", &dlat, 0, 0, "%.6f");
-            ImGui::InputFloat("Lon##d", &dlon, 0, 0, "%.6f");
-            ImGui::InputFloat("Alt##d", &dalt, 0, 0, "%.2f");
+
+            ImGui::Text("Lat : %s", (*data_tosend)["goal_lat"].get<std::string>().c_str());
+            ImGui::Text("Lon : %s", (*data_tosend)["goal_lon"].get<std::string>().c_str());
+            ImGui::Text("Alt : %s", mj["gps_alt_curr"].get<std::string>().c_str());
             ImGui::Text("Distance : %.2f m", 12.4f);
             ImGui::Text("Curr Yaw : %s deg", mj["currnYaw"].get<std::string>().c_str());
-            ImGui::Text("Dest Yaw : %s deg",  mj["destYaw"].get<std::string>().c_str());
-            ImGui::Text("Error : %s deg",  mj["destYawError"].get<std::string>().c_str());
+            ImGui::Text("Dest Yaw : %s deg", mj["destYaw"].get<std::string>().c_str());
+            ImGui::Text("Error : %s deg", mj["destYawError"].get<std::string>().c_str());
             ImGui::Separator();
             ImGui::Text("Colour Marker");
             std::string fgfg;
@@ -133,14 +174,14 @@ void DrawUI(int client_fd)
 
             ImGui::BeginChild("Middle", ImVec2(midW, H), false);
 
-            float topH = H * 0.35f;
-            float midH = H * 0.30f;
+            float topH = H * 0.45f;
+            float midH = H * 0.25f;
 
             ImGui::BeginChild("TopRow", ImVec2(0, topH), false);
 
             ImGui::BeginChild("ZED", ImVec2(midW * 0.6f, topH), true);
             ImGui::Text("ZED Camera");
-            ImGui::Dummy(ImVec2(0, topH - 30));
+            ImGui::Dummy(ImVec2(0, topH - 40));
             ImGui::EndChild();
 
             ImGui::SameLine();
@@ -148,17 +189,79 @@ void DrawUI(int client_fd)
             ImGui::BeginChild("NavState", ImVec2(0, topH), true);
             static int control_mode = 1;
             ImGui::Text("Nav State");
-            ImGui::RadioButton("Manual", &control_mode, 0);
-            ImGui::RadioButton("Autonomous", &control_mode, 1);
+            ImGui::Text("Control Mode: %s", (*data_tosend)["is_auto"] ? "Auto" : "Manual");
+            if (ImGui::Button((*data_tosend)["is_auto"] ? "ON" : "OFF"))
+            {
+                (*data_tosend)["is_auto"] = !(*data_tosend)["is_auto"];
+            }
+
+
+            ImGui::Text("Gps or COlour: %s", (*data_tosend)["navModeColourGPS"] ? "Colour" : "Gps");
+            if (ImGui::Button((*data_tosend)["navModeColourGPS"] ? "Colour" : "Gps"))
+            {
+                (*data_tosend)["navModeColourGPS"] = !(*data_tosend)["navModeColourGPS"];
+            }
+
+
+
+            if (!(*data_tosend)["navModeColourGPS"])
+            { // treu then gps
+                std::string lat = (*data_tosend).value("goal_lat", "");
+                std::string lon = (*data_tosend).value("goal_lon", "");
+
+                ImGui::InputText("Lat##d", &lat);
+                ImGui::InputText("Lon##d", &lon);
+                (*data_tosend)["goal_lon"] = lon;
+                (*data_tosend)["goal_lat"] = lat;
+
+                if (ImGui::Button("Confirm"))
+                {
+                    sendLL(client_fd,data_tosend);
+                }
+
+                ImGui::SameLine();
+
+                if (ImGui::Button("Reset"))
+                {
+                    resetLL(data_tosend);
+                }
+            }
+            else
+            {
+                int targetConeId = (*data_tosend)["colourId"];
+                int setSkew = (*data_tosend)["to_skew"]; // 0for no skew 1 for skew
+                int skew = (*data_tosend)["skew"];       // search skew id
+
+                ImGui::InputInt("coneID", &targetConeId);
+                ImGui::InputInt("setSkew?", &setSkew);
+                (*data_tosend)["colourId"] = targetConeId;
+                (*data_tosend)["to_skew"] = setSkew;
+                if (setSkew)
+                {
+
+                    ImGui::InputInt("skew", &skew);
+                    (*data_tosend)["skew"] = skew;
+                }
+                if (ImGui::Button("Confirm"))
+                {
+                    sendLL(client_fd,data_tosend);
+                }
+
+                ImGui::SameLine();
+
+                if (ImGui::Button("Reset"))
+                {
+                    resetLL(data_tosend);
+                }
+            }
+
             ImGui::Separator();
-            ImGui::Text("Nav Mode : WAYPOINT");
+            ImGui::Text("Nav Mode : %s,");
             ImGui::EndChild();
-
             ImGui::EndChild();
-
             ImGui::BeginChild("Mast", ImVec2(0, midH), true);
             ImGui::Text("Mast Camera");
-            ImGui::Dummy(ImVec2(0, midH - 30));
+            ImGui::Dummy(ImVec2(0, midH - 40));
             ImGui::EndChild();
 
             ImGui::BeginChild("Console", ImVec2(0, 0), true);
@@ -259,6 +362,18 @@ void DrawUI(int client_fd)
 
 int main()
 {
+
+    nlohmann::json data_tosend;
+    data_tosend = {
+        {"is_auto", false},
+        {"navModeColourGPS", false}, // false is colour
+        {"colourId", -1},
+        {"to_skew", 0}, //whether to skew or not
+        {"skew", -1},
+        {"goal_lat", "nan"},
+        {"goal_lon", "nan"},
+    };
+
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd < 0)
     {
@@ -276,17 +391,15 @@ int main()
         perror("bind");
         return 1;
     }
-
     listen(server_fd, 1);
-
     std::cout << "Waiting for connection...\n";
-
     int client_fd = accept(server_fd, nullptr, nullptr);
     if (client_fd < 0)
     {
         perror("accept");
         return 1;
     }
+
     glfwInit();
     GLFWwindow *window = glfwCreateWindow(960, 540, "MRM GUI", NULL, NULL);
     glfwMakeContextCurrent(window);
@@ -310,7 +423,7 @@ int main()
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        DrawUI(client_fd);
+        DrawUI(client_fd, &data_tosend);
 
         ImGui::Render();
         int w, h;
