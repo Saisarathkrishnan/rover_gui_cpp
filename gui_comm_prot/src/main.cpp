@@ -207,6 +207,7 @@ private:
                 guicmdRecv.goal_lon = std::stof(lon_str);
             }
         }
+        (mj["navModeColourGPS"].get<bool>())?(guicmdRecv.nav_mode=1):(guicmdRecv.nav_mode=0);
         guicmdRecv.set_search_skew = mj.value("to_skew", -1);
         guicmdRecv.target_cone_id = mj.value("colourId", -1);
         guicmdRecv.search_skew = mj.value("skew", -1);

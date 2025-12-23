@@ -1,0 +1,27 @@
+{
+  "configurations": [
+    {
+      "browse": {
+        "databaseFilename": "${workspaceFolder}/.vscode/browse.vc.db",
+        "limitSymbolsToIncludedHeaders": false
+      },
+      "includePath": [
+        "/home/exhausted/Saisarath/stuff/MRM/ros_ws3/install/planner_test/include/**",
+        "/home/exhausted/Saisarath/stuff/MRM/ros_ws3/install/robot_interface/include/**",
+        "/home/exhausted/Saisarath/stuff/MRM/ros_ws3/install/custom_msgs/include/**",
+        "/home/exhausted/Saisarath/stuff/MRM/irc_test_stack/install/robot_msgs/include/**",
+        "/home/exhausted/Saisarath/stuff/MRM/URDF_WS/install/custom_messsages_interface/include/**",
+        "/home/exhausted/zed_wrapper/install/zed_components/include/**",
+        "/opt/ros/humble/include/**",
+        "/home/exhausted/Saisarath/stuff/MRM/ros_ws3/src/gui_comm_prot/include/**",
+        "/usr/include/**"
+      ],
+      "name": "ros2",
+      "intelliSenseMode": "gcc-x64",
+      "compilerPath": "/usr/bin/gcc",
+      "cStandard": "gnu11",
+      "cppStandard": "c++17"
+    }
+  ],
+  "version": 4
+}
