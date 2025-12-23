@@ -1,4 +1,4 @@
-float64 gps_lat_curr
+float64 latitude
 float64 longitude
 float64 altitude
 
