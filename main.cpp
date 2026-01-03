@@ -4,12 +4,45 @@
 #include "misc/cpp/imgui_stdlib.h"
 
 #include <GLFW/glfw3.h>
+#include <GL/gl.h>
 
 #include <iostream>
 #include <stdio.h>
 #include <string>
 #include <arpa/inet.h>
 #include <nlohmann/json.hpp>
+
+#include <opencv2/opencv.hpp>
+
+GLuint matToTexture(const cv::Mat &mat, GLuint tex_id)
+{
+    if (tex_id == 0)
+        glGenTextures(1, &tex_id);
+
+    glBindTexture(GL_TEXTURE_2D, tex_id);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+    GLenum format = mat.channels() == 3 ? GL_BGR : GL_BGRA;
+
+    glTexImage2D(
+        GL_TEXTURE_2D,
+        0,
+        GL_RGB,
+        mat.cols,
+        mat.rows,
+        0,
+        format,
+        GL_UNSIGNED_BYTE,
+        mat.data);
+
+    glBindTexture(GL_TEXTURE_2D, 0);
+    return tex_id;
+}
+
 void mystyle()
 {
     ImGuiStyle &style = ImGui::GetStyle();
@@ -31,7 +64,7 @@ nlohmann::json check_online()
     std::cout << "Analog: " << (isOnline("10.0.0.9") ? "online" : "offline") << std::endl;
 }
 
-void sendLL(int client_fd,nlohmann::json *data_tosend)
+void sendLL(int client_fd, nlohmann::json *data_tosend)
 {
     std::cout << "send" << std::endl;
     std::cout << "sending this json-----------" << std::endl;
@@ -64,7 +97,11 @@ void resetLL(nlohmann::json *data_tosend)
     std::cout << "reseted the json-----------" << std::endl;
 }
 
-void DrawUI(int client_fd, nlohmann::json *data_tosend)
+void DrawUI(int client_fd,
+            nlohmann::json *data_tosend,
+            std::vector<cv::VideoCapture> &caps,
+            std::vector<GLuint> &textures,
+            const std::vector<int> &channels)
 {
 
     uint32_t len_net = 0;
@@ -195,14 +232,11 @@ void DrawUI(int client_fd, nlohmann::json *data_tosend)
                 (*data_tosend)["is_auto"] = !(*data_tosend)["is_auto"];
             }
 
-
             ImGui::Text("Gps or COlour: %s", (*data_tosend)["navModeColourGPS"] ? "Colour" : "Gps");
             if (ImGui::Button((*data_tosend)["navModeColourGPS"] ? "Colour" : "Gps"))
             {
                 (*data_tosend)["navModeColourGPS"] = !(*data_tosend)["navModeColourGPS"];
             }
-
-
 
             if (!(*data_tosend)["navModeColourGPS"])
             { // treu then gps
@@ -216,7 +250,7 @@ void DrawUI(int client_fd, nlohmann::json *data_tosend)
 
                 if (ImGui::Button("Confirm"))
                 {
-                    sendLL(client_fd,data_tosend);
+                    sendLL(client_fd, data_tosend);
                 }
 
                 ImGui::SameLine();
@@ -244,7 +278,7 @@ void DrawUI(int client_fd, nlohmann::json *data_tosend)
                 }
                 if (ImGui::Button("Confirm"))
                 {
-                    sendLL(client_fd,data_tosend);
+                    sendLL(client_fd, data_tosend);
                 }
 
                 ImGui::SameLine();
@@ -338,7 +372,60 @@ void DrawUI(int client_fd, nlohmann::json *data_tosend)
 
         if (ImGui::BeginTabItem("Tab2"))
         {
-            ImGui::Text("Arm and gripper UI");
+            ImGui::Text("Analog Camera");
+            ImGui::Separator();
+
+            const int GRID_ROWS = 2;
+            const int GRID_COLS = 4;
+
+            float availW = ImGui::GetContentRegionAvail().x;
+            float availH = ImGui::GetContentRegionAvail().y;
+
+            float cellW = availW / GRID_COLS;
+            float cellH = availH / GRID_ROWS;
+
+            cv::Mat frame;
+
+            for (int i = 0; i < (int)caps.size(); i++)
+            {
+                if (!caps[i].read(frame) || frame.empty())
+                    continue;
+
+                //Correct mirror (left ↔ right)
+                cv::flip(frame, frame, 0);
+
+                textures[i] = matToTexture(frame, textures[i]);
+
+                ImGui::BeginGroup();
+
+                ImVec2 imgSize(cellW - 8, cellH - 32);
+                ImVec2 pos = ImGui::GetCursorScreenPos();
+
+                ImGui::Image(
+                    (void *)(intptr_t)textures[i],
+                    imgSize,
+                    ImVec2(0, 1),
+                    ImVec2(1, 0));
+
+                // Blue border
+                ImDrawList *draw_list = ImGui::GetWindowDrawList();
+                draw_list->AddRect(
+                    pos,
+                    ImVec2(pos.x + imgSize.x, pos.y + imgSize.y),
+                    IM_COL32(41, 86, 128, 255), // Blue
+                    0.0f,
+                    0,
+                    2.0f);
+
+                // Channel label
+                ImGui::Text("CH %d", channels[i]);
+
+                ImGui::EndGroup();
+
+                if ((i + 1) % GRID_COLS != 0)
+                    ImGui::SameLine();
+                
+            }
             ImGui::EndTabItem();
         }
 
@@ -362,13 +449,29 @@ void DrawUI(int client_fd, nlohmann::json *data_tosend)
 
 int main()
 {
+    std::vector<int> channels = {101, 201, 301, 401, 501, 601, 701, 801};
+    std::vector<cv::VideoCapture> caps;
+    std::vector<GLuint> textures(8, 0);
+
+    for (int ch : channels)
+    {
+        std::string pipeline =
+            "rtspsrc location=rtsp://admin:mrmecs2025@10.0.0.9:554/Streaming/Channels/" + std::to_string(ch) + " "
+                                                                                                               "protocols=tcp latency=0 buffer-mode=none drop-on-latency=true ! "
+                                                                                                               "decodebin ! videoconvert ! video/x-raw,format=BGR ! "
+                                                                                                               "appsink drop=true max-buffers=1 sync=false";
+
+        cv::VideoCapture cap(pipeline, cv::CAP_GSTREAMER);
+        if (cap.isOpened())
+            caps.push_back(std::move(cap));
+    }
 
     nlohmann::json data_tosend;
     data_tosend = {
         {"is_auto", false},
         {"navModeColourGPS", false}, // false is colour
         {"colourId", -1},
-        {"to_skew", 0}, //whether to skew or not
+        {"to_skew", 0}, // whether to skew or not
         {"skew", -1},
         {"goal_lat", "nan"},
         {"goal_lon", "nan"},
@@ -423,7 +526,7 @@ int main()
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        DrawUI(client_fd, &data_tosend);
+        DrawUI(client_fd, &data_tosend, caps, textures, channels);
 
         ImGui::Render();
         int w, h;

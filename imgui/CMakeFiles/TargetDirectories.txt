@@ -1,0 +1,3 @@
+/home/exhausted/Saisarath/stuff/MRM/GUI/imgui/CMakeFiles/gui.dir
+/home/exhausted/Saisarath/stuff/MRM/GUI/imgui/CMakeFiles/edit_cache.dir
+/home/exhausted/Saisarath/stuff/MRM/GUI/imgui/CMakeFiles/rebuild_cache.dir
