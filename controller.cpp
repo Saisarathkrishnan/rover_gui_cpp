@@ -61,7 +61,8 @@ public:
             "dpup:h0.1,dpright:h0.2,dpdown:h0.4,dpleft:h0.8,"
             "leftx:a0,lefty:a1,"
             "rightx:a3,righty:a4,"
-            "lefttrigger:a2,righttrigger:a5,",
+            "lefttrigger:a2,righttrigger:a5,"
+            "platform:Linux",
             guid);
 
         glfwUpdateGamepadMappings(mapping);
