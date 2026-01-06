@@ -62,11 +62,11 @@ public:
         string_initialize();
         initializeSock();
 
-        std::cout << "hi" << std::endl;
+        //std::cout << "hi" << std::endl;
         while (!glfwJoystickPresent(GLFW_JOYSTICK_1))
         {
             glfwPollEvents();
-            std::cout << "connect controller" << std::endl;
+            //std::cout << "connect controller" << std::endl;
         }
         const char *guid = glfwGetJoystickGUID(GLFW_JOYSTICK_1);
         const char *name = glfwGetJoystickName(GLFW_JOYSTICK_1);
@@ -208,7 +208,7 @@ public:
         if (buttons[DPAD_UP])
         {
             std::cout << "d_up pressed" << std::endl;
-            sendJ["A"] = std::to_string(6);
+            sendJ["A"] = std::to_string(5);
         }
         if (buttons[DPAD_RIGHT])
         {
@@ -218,7 +218,7 @@ public:
         if (buttons[DPAD_DOWN])
         {
             std::cout << "d_down pressed" << std::endl;
-            sendJ["A"] = std::to_string(5);
+            sendJ["A"] = std::to_string(6);
         }
         if (buttons[DPAD_LEFT])
         {
@@ -230,7 +230,7 @@ public:
         sendJ["X"] = std::to_string(int(controller.axes[GLFW_GAMEPAD_AXIS_LEFT_X] * 1123));
         sendJ["Y"] = std::to_string(int(controller.axes[GLFW_GAMEPAD_AXIS_LEFT_Y] * 1023));
         sendJ["Q"] = std::to_string(int(controller.axes[GLFW_GAMEPAD_AXIS_RIGHT_X] * 11));
-        sendJ["P"] = std::to_string(int(controller.axes[GLFW_GAMEPAD_AXIS_RIGHT_Y] * 11));
+        sendJ["P"] = std::to_string(-int(controller.axes[GLFW_GAMEPAD_AXIS_RIGHT_Y] * 11));
 
         if (controller.axes[GLFW_GAMEPAD_AXIS_LEFT_TRIGGER] > -1)
         {
@@ -241,19 +241,10 @@ public:
             sendJ["S"] = std::to_string(int((controller.axes[GLFW_GAMEPAD_AXIS_RIGHT_TRIGGER] + 1) * 5));
         }
 
-        printf(
-            "LX:%d LY:%d | RX:%d RY:%d | LT:%d RT:%d\n",
-            int(controller.axes[GLFW_GAMEPAD_AXIS_LEFT_X] * 1123),
-            int(controller.axes[GLFW_GAMEPAD_AXIS_LEFT_Y] * 1023),
-            int(controller.axes[GLFW_GAMEPAD_AXIS_RIGHT_X] * 11),
-            int(controller.axes[GLFW_GAMEPAD_AXIS_RIGHT_Y] * 11),
-            int(controller.axes[GLFW_GAMEPAD_AXIS_LEFT_TRIGGER]),
-            int(controller.axes[GLFW_GAMEPAD_AXIS_RIGHT_TRIGGER]));
-
         fflush(stdout);
 
         string_update();
-        std::cout << skillIssue << "\n";
+        //std::cout << skillIssue << "\n";
         sendSock();
     }
 
@@ -262,7 +253,7 @@ public:
         sockfd = socket(AF_INET, SOCK_DGRAM, 0);
         if (sockfd < 0)
         {
-            perror("Socket creation failed");
+            perror("socket ass sucks");
             return;
         }
 
@@ -324,8 +315,7 @@ private:
     bool prev_rb_pressed;
 };
 
-#include <thread>
-#include <chrono>
+
 
 int main()
 {
